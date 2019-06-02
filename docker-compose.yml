@@ -1,0 +1,81 @@
+version: '2'
+
+services:
+  db: 
+    image: mysql:5.6
+    ports:
+        - "3406:3306"
+    environment:
+       - MYSQL_ROOT_PASSWORD=1234
+    volumes:
+       - ./mysql:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest 
+    ports:
+        - "9000:80"
+    links:
+        - db
+  redis:
+    image: redis:latest
+
+  phpredisadmin:
+    image: erikdubbelboer/phpredisadmin:latest
+    ports:
+        - "9300:80"
+    environment:
+        - ADMIN_USER=admin
+        - ADMIN_PASS=admin
+        - REDIS_1_HOST=redis
+        - REDIS_1_PORT=6379
+    links:
+        - redis
+
+  # Websocket機
+  ws:
+     image: boardgame_go:latest
+     ports:
+        - "8000:8000"
+     command: tail -F anything
+     volumes:
+        - ~/Documents/Golang/src/boardgame_ws:/go/src/boardgame_ws
+
+  # 遊戲中心
+  gamecenter:
+     image: boardgame_go:latest
+     ports:
+        - "8888:8888"
+     command: tail -F anything
+     volumes:
+        - ~/Documents/Golang/src/boardgame_gamecenter:/go/src/boardgame_gamecenter
+     links:
+        - db
+        - redis
+        - ws
+
+  # API機
+  server:
+     image: boardgame_go:latest
+     ports:
+        - "8300:8300"
+     command: tail -F anything
+     volumes:
+        - ~/Documents/Golang/src/boardgame_server:/go/src/boardgame_server
+     links:
+        - db
+        - redis
+        - gamecenter
+        - ws
+  
+  # 客端
+  client:
+     image: node:8.15
+     volumes:
+        - ./code/frontend:/code
+     #command: ['npm', 'run', 'dev']
+     command: tail -F anything
+     links:
+        - server
+        - ws
+     ports:
+        - "8787:8787"
